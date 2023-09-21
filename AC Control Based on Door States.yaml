@@ -1,0 +1,72 @@
+blueprint:
+  name: Air Conditioning Control Based on Door States
+  description: Turns off the air conditioning if any door is open for a specified duration. Turns it back on once all doors are closed for a specified duration.
+  domain: automation
+  input:
+    doors:
+      name: Doors
+      description: Doors to monitor.
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: door
+    air_conditioning_entity:
+      name: Air Conditioning Entity
+      description: The air conditioning entity to control.
+      selector:
+        entity:
+          domain: climate
+    door_open_duration:
+      name: Door Open Duration
+      description: Time (in minutes) a door has to be open before turning off the air conditioning.
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 60
+          step: 1
+          unit_of_measurement: min
+    door_closed_duration:
+      name: Door Closed Duration
+      description: Time (in minutes) all doors have to be closed before turning the air conditioning back on.
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 60
+          step: 1
+          unit_of_measurement: min
+
+trigger:
+  - platform: state
+    entity_id: !input doors
+    from: 'off'
+    to: 'on'
+    for:
+      minutes: !input door_open_duration
+  - platform: state
+    entity_id: !input doors
+    from: 'on'
+    to: 'off'
+    for:
+      minutes: !input door_closed_duration
+
+action:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: !input doors
+            state: 'on'
+        sequence:
+          - service: climate.turn_off
+            target:
+              entity_id: !input air_conditioning_entity
+      - conditions:
+          - condition: template
+            value_template: "{{ is_state('binary_sensor.door', 'off') }}"
+        sequence:
+          - service: climate.turn_on
+            target:
+              entity_id: !input air_conditioning_entity
+
+mode: single
